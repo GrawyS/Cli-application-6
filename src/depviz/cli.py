@@ -7,6 +7,7 @@ from depviz.config import format_settings, load_settings
 from depviz.errors import ConfigError, RepositoryError
 from depviz.graph import build_graph, describe
 from depviz.repository import open_repository
+from depviz.reverse import format_reverse, reverse_dependencies
 
 DEFAULT_CONFIG = "config.ini"
 EXIT_OK = 0
@@ -30,6 +31,10 @@ def build_parser():
     parser.add_argument(
         "--direct", action="store_true",
         help="этап 2: вывести прямые зависимости пакета",
+    )
+    parser.add_argument(
+        "--reverse", metavar="ПАКЕТ",
+        help="этап 4: вывести пакеты, зависящие от ПАКЕТА",
     )
     return parser
 
@@ -66,6 +71,16 @@ def show_graph(settings):
     print("\n".join(describe(graph)))
 
 
+def show_reverse(settings, target):
+    """Этап 4: печатает обратные зависимости пакета target."""
+    repository, root = open_repository(settings)
+    graph = build_graph(
+        root, repository.direct_dependencies, settings.max_depth)
+    print_warnings(repository)
+    for result in reverse_dependencies(graph, target):
+        print("\n".join(format_reverse(result)))
+
+
 def main(argv=None):
     """Запускает приложение и возвращает код завершения."""
     args = build_parser().parse_args(argv)
@@ -79,6 +94,8 @@ def main(argv=None):
     try:
         if args.direct:
             show_direct(settings)
+        elif args.reverse:
+            show_reverse(settings, args.reverse)
         elif not args.show_config:
             show_graph(settings)
     except RepositoryError as exc:
