@@ -5,7 +5,8 @@ import sys
 
 from depviz.config import format_settings, load_settings
 from depviz.errors import ConfigError, RepositoryError
-from depviz.maven import MavenRepository
+from depviz.graph import build_graph, describe
+from depviz.repository import open_repository
 
 DEFAULT_CONFIG = "config.ini"
 EXIT_OK = 0
@@ -48,13 +49,21 @@ def print_warnings(repository):
 
 def show_direct(settings):
     """Этап 2: печатает прямые зависимости заданной версии пакета."""
-    repository = MavenRepository(settings.repo_url)
-    root = f"{settings.package_name}:{settings.package_version}"
+    repository, root = open_repository(settings)
     dependencies = repository.direct_dependencies(root)
     print_warnings(repository)
     print(f"Прямые зависимости {root}:")
     for dependency in dependencies or ["(нет прямых зависимостей)"]:
         print(f"  - {dependency}")
+
+
+def show_graph(settings):
+    """Этап 3: строит граф зависимостей и печатает его описание."""
+    repository, root = open_repository(settings)
+    graph = build_graph(
+        root, repository.direct_dependencies, settings.max_depth)
+    print_warnings(repository)
+    print("\n".join(describe(graph)))
 
 
 def main(argv=None):
@@ -70,6 +79,8 @@ def main(argv=None):
     try:
         if args.direct:
             show_direct(settings)
+        elif not args.show_config:
+            show_graph(settings)
     except RepositoryError as exc:
         print(f"Ошибка: {exc}", file=sys.stderr)
         return EXIT_ERROR
